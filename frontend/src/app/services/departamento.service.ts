@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 
 export interface Departamento {
   id: number;
@@ -23,361 +24,234 @@ export interface Departamento {
   providedIn: 'root',
 })
 export class DepartamentoService {
-  private readonly STORAGE_KEY = 'departamentosDepaYa';
-
-  private readonly TITULOS_DEMO = new Set([
-    'Loft Ejecutivo Prime con Vista al Mar',
-    'Departamento Moderno en San Isidro',
-    'Departamento Familiar en Barranco',
-    'Departamento con Vista al Mar',
-    'Loft Ejecutivo Moderno',
-    'Casa de Playa Familiar',
-  ]);
+  private readonly baseUrl = 'https://depayabackend-fzbeg0g5cydsecbm.canadacentral-01.azurewebsites.net';
+  private readonly apiUrl = `${this.baseUrl}/api/Departamento`;
 
   private departamentos: Departamento[] = [];
 
-  constructor() {
-    this.cargarDepartamentos();
+  constructor(private http: HttpClient) {
+    this.cargarDesdeServidor();
   }
 
-  // ============================================================
-  // CARGAR
-  // ============================================================
+  private getHeaders(): HttpHeaders {
+    const token = localStorage.getItem('token');
 
-  private cargarDepartamentos(): void {
-    const datos = localStorage.getItem(this.STORAGE_KEY);
-
-    if (datos) {
-      try {
-        const lista = JSON.parse(datos);
-
-        if (Array.isArray(lista)) {
-          this.departamentos = this.limpiarDepartamentosDemo(lista);
-          this.normalizarDepartamentos();
-          this.guardar();
-          return;
-        }
-      } catch (error) {
-        console.error('Error al cargar departamentos:', error);
-      }
-    }
-
-    // Desde ahora el proyecto inicia sin propiedades de relleno.
-    // Solo se mostrarán las publicaciones creadas por propietarios.
-    this.departamentos = [];
-    this.guardar();
-  }
-
-  // ============================================================
-  // QUITAR LOS 6 DEPARTAMENTOS DEMO ANTIGUOS
-  // ============================================================
-
-  private limpiarDepartamentosDemo(lista: Departamento[]): Departamento[] {
-    return lista.filter((departamento) => {
-      const esDemo =
-        this.TITULOS_DEMO.has((departamento.Titulo || '').trim()) &&
-        (departamento.propietarioEmail || '').trim().toLowerCase() === 'propietario@depaya.com' &&
-        !departamento.fechaPublicacion;
-
-      return !esDemo;
+    return new HttpHeaders({
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     });
   }
 
-  // ============================================================
-  // NORMALIZAR CAMPOS OPCIONALES
-  // ============================================================
-
-  private normalizarDepartamentos(): void {
-    this.departamentos = this.departamentos.map((departamento) => ({
-      ...departamento,
-      Descripcion: departamento.Descripcion ?? '',
-      Capacidad: Number(departamento.Capacidad ?? 0),
-      TienePiscina: Boolean(departamento.TienePiscina),
-      TieneWifi: Boolean(departamento.TieneWifi),
-      AdmiteMascotas: Boolean(departamento.AdmiteMascotas),
-      Activo: departamento.Activo !== false,
-    }));
-  }
-
-  // ============================================================
-  // SINCRONIZAR DESDE LOCALSTORAGE
-  // ============================================================
-
-  private sincronizar(): void {
-    const datos = localStorage.getItem(this.STORAGE_KEY);
-
-    if (!datos) {
-      this.departamentos = [];
-      return;
-    }
-
-    try {
-      const lista = JSON.parse(datos);
-
-      if (Array.isArray(lista)) {
-        this.departamentos = this.limpiarDepartamentosDemo(lista);
-        this.normalizarDepartamentos();
-      }
-    } catch (error) {
-      console.error('Error sincronizando departamentos:', error);
-    }
-  }
-
-  // ============================================================
-  // GUARDAR
-  // ============================================================
-
-  private guardar(): void {
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.departamentos));
-  }
-
-  // ============================================================
-  // LISTAR TODOS
-  // ============================================================
-
-  getDepartamentos(): Departamento[] {
-    this.sincronizar();
-
-    return this.departamentos.map((departamento) => ({
-      ...departamento,
-    }));
-  }
-
-  // ============================================================
-  // LISTAR SOLO ACTIVOS
-  // ============================================================
-
-  getDepartamentosActivos(): Departamento[] {
-    this.sincronizar();
-
-    return this.departamentos
-      .filter((departamento) => departamento.Activo !== false)
-      .map((departamento) => ({
-        ...departamento,
-      }));
-  }
-
-  // ============================================================
-  // BUSCAR POR ID
-  // ============================================================
-
-  getDepartamentoById(id: number): Departamento | undefined {
-    this.sincronizar();
-
-    const departamento = this.departamentos.find((item) => item.id === id);
-
-    return departamento ? { ...departamento } : undefined;
-  }
-
-  // ============================================================
-  // DEPARTAMENTOS DEL PROPIETARIO
-  // ============================================================
-
-  getDepartamentosPorPropietario(email: string): Departamento[] {
-    this.sincronizar();
-
-    const correo = email.trim().toLowerCase();
-
-    return this.departamentos
-      .filter((departamento) => departamento.propietarioEmail.trim().toLowerCase() === correo)
-      .map((departamento) => ({
-        ...departamento,
-      }));
-  }
-
-  // ============================================================
-  // AGREGAR
-  // ============================================================
-
-  agregarDepartamento(departamento: Departamento): Departamento {
-    this.sincronizar();
-
-    const nuevoId =
-      this.departamentos.length > 0
-        ? Math.max(...this.departamentos.map((item) => item.id)) + 1
-        : 1;
-
-    const nuevoDepartamento: Departamento = {
-      ...departamento,
-      id: nuevoId,
-      propietarioEmail: departamento.propietarioEmail.trim().toLowerCase(),
-      Descripcion: (departamento.Descripcion || '').trim(),
-      Capacidad: Number(departamento.Capacidad ?? 0),
-      TienePiscina: Boolean(departamento.TienePiscina),
-      TieneWifi: Boolean(departamento.TieneWifi),
-      AdmiteMascotas: Boolean(departamento.AdmiteMascotas),
-      Activo: departamento.Activo !== false,
-      fechaPublicacion: departamento.fechaPublicacion || new Date().toISOString(),
-    };
-
-    this.departamentos.push(nuevoDepartamento);
-    this.guardar();
+  private normalizarDepartamento(item: any): Departamento {
+    const activo = item.Activo ?? item.activo ?? item.Estado ?? 'Disponible';
 
     return {
-      ...nuevoDepartamento,
+      id: Number(item.id ?? item.ID_Departamento ?? 0),
+      Titulo: item.Titulo ?? item.titulo ?? 'Sin título',
+      Distrito: item.Distrito ?? item.distrito ?? '',
+      Precio_Noche: Number(item.Precio_Noche ?? item.precio_Noche ?? item.PrecioNoche ?? 0),
+      Habitaciones: Number(item.Habitaciones ?? item.habitaciones ?? 0),
+      Banos: Number(item.Banos ?? item.banos ?? 0),
+      Categoria: item.Categoria ?? item.categoria ?? 'General',
+      URL_Imagen: item.URL_Imagen ?? item.url_Imagen ?? item.URLImagen ?? '',
+      propietarioEmail: String(
+        item.propietarioEmail ?? item.PropietarioEmail ?? item.emailPropietario ?? '',
+      )
+        .trim()
+        .toLowerCase(),
+      Descripcion: item.Descripcion ?? item.descripcion ?? '',
+      Capacidad: Number(item.Capacidad ?? item.capacidad ?? item.Capacidad_Personas ?? 0),
+      TienePiscina: Boolean(item.TienePiscina ?? item.tienePiscina ?? false),
+      TieneWifi: Boolean(item.TieneWifi ?? item.tieneWifi ?? false),
+      AdmiteMascotas: Boolean(item.AdmiteMascotas ?? item.admiteMascotas ?? false),
+      Activo: activo !== false && String(activo).toLowerCase() !== 'inactivo',
+      fechaPublicacion:
+        item.fechaPublicacion ?? item.Fecha_Publicacion ?? new Date().toISOString(),
     };
   }
 
-  // ============================================================
-  // ACTUALIZAR
-  // ============================================================
+  private cargarDesdeServidor(): void {
+    this.http
+      .get<any[]>(this.apiUrl, {
+        headers: this.getHeaders(),
+      })
+      .subscribe({
+        next: (response) => {
+          this.departamentos = (response ?? []).map((item) => this.normalizarDepartamento(item));
+        },
+        error: () => {
+          this.departamentos = [];
+        },
+      });
+  }
+
+  private refrescar(): void {
+    this.cargarDesdeServidor();
+  }
+
+  getDepartamentos(): Departamento[] {
+    return [...this.departamentos];
+  }
+
+  getDepartamentosActivos(): Departamento[] {
+    return this.departamentos.filter((departamento) => departamento.Activo !== false);
+  }
+
+  getDepartamentoById(id: number): Departamento | undefined {
+    return this.departamentos.find((item) => Number(item.id) === Number(id));
+  }
+
+  getDepartamentosPorPropietario(email: string): Departamento[] {
+    const correo = (email || '').trim().toLowerCase();
+
+    return this.departamentos.filter(
+      (departamento) => (departamento.propietarioEmail || '').trim().toLowerCase() === correo,
+    );
+  }
+
+  agregarDepartamento(departamento: Departamento): Departamento {
+    const payload = {
+      ID_Propietario: 0,
+      Titulo: departamento.Titulo,
+      Descripcion: departamento.Descripcion ?? '',
+      Distrito: departamento.Distrito,
+      Direccion: departamento.Distrito,
+      Latitud: null,
+      Longitud: null,
+      Precio_Noche: Number(departamento.Precio_Noche ?? 0),
+      Capacidad_Personas: Number(departamento.Capacidad ?? 0),
+      Habitaciones: Number(departamento.Habitaciones ?? 0),
+      Banos: Number(departamento.Banos ?? 0),
+      Estado: departamento.Activo === false ? 'Inactivo' : 'Disponible',
+    };
+
+    this.http
+      .post<any>(this.apiUrl, payload, {
+        headers: this.getHeaders(),
+      })
+      .subscribe({
+        next: () => this.refrescar(),
+        error: () => this.refrescar(),
+      });
+
+    return {
+      ...departamento,
+      id: departamento.id ?? this.departamentos.length + 1,
+    };
+  }
 
   actualizarDepartamento(departamento: Departamento): boolean {
-    this.sincronizar();
-
-    const indice = this.departamentos.findIndex((item) => item.id === departamento.id);
-
-    if (indice === -1) {
-      return false;
-    }
-
-    this.departamentos[indice] = {
-      ...this.departamentos[indice],
-      ...departamento,
-      propietarioEmail: departamento.propietarioEmail.trim().toLowerCase(),
-      Descripcion: (departamento.Descripcion || '').trim(),
-      Capacidad: Number(departamento.Capacidad ?? 0),
-      TienePiscina: Boolean(departamento.TienePiscina),
-      TieneWifi: Boolean(departamento.TieneWifi),
-      AdmiteMascotas: Boolean(departamento.AdmiteMascotas),
-      Activo:
-        departamento.Activo === undefined
-          ? this.departamentos[indice].Activo !== false
-          : departamento.Activo !== false,
+    const payload = {
+      ID_Propietario: 0,
+      Titulo: departamento.Titulo,
+      Descripcion: departamento.Descripcion ?? '',
+      Distrito: departamento.Distrito,
+      Direccion: departamento.Distrito,
+      Latitud: null,
+      Longitud: null,
+      Precio_Noche: Number(departamento.Precio_Noche ?? 0),
+      Capacidad_Personas: Number(departamento.Capacidad ?? 0),
+      Habitaciones: Number(departamento.Habitaciones ?? 0),
+      Banos: Number(departamento.Banos ?? 0),
+      Estado: departamento.Activo === false ? 'Inactivo' : 'Disponible',
     };
 
-    this.guardar();
+    this.http
+      .put<any>(`${this.apiUrl}/${departamento.id}`, payload, {
+        headers: this.getHeaders(),
+      })
+      .subscribe({
+        next: () => this.refrescar(),
+        error: () => this.refrescar(),
+      });
+
     return true;
   }
-
-  // ============================================================
-  // DESACTIVAR UN DEPARTAMENTO
-  // ============================================================
 
   desactivarDepartamento(id: number): boolean {
-    this.sincronizar();
+    this.http
+      .delete(`${this.apiUrl}/${id}`, {
+        headers: this.getHeaders(),
+      })
+      .subscribe({
+        next: () => this.refrescar(),
+        error: () => this.refrescar(),
+      });
 
-    const indice = this.departamentos.findIndex(
-      (departamento) => Number(departamento.id) === Number(id),
-    );
-
-    if (indice === -1) {
-      return false;
-    }
-
-    this.departamentos[indice] = {
-      ...this.departamentos[indice],
-      Activo: false,
-    };
-
-    this.guardar();
     return true;
   }
 
-  // ============================================================
-  // DESACTIVAR TODOS LOS DEPARTAMENTOS DEL PROPIETARIO
-  // ============================================================
-
   desactivarDepartamentosPropietario(email: string): number {
-    this.sincronizar();
+    const departamentos = this.getDepartamentosPorPropietario(email);
 
-    const correo = email.trim().toLowerCase();
-    let cantidad = 0;
-
-    this.departamentos = this.departamentos.map((departamento) => {
-      const pertenece = (departamento.propietarioEmail || '').trim().toLowerCase() === correo;
-
-      if (pertenece && departamento.Activo !== false) {
-        cantidad++;
-
-        return {
-          ...departamento,
-          Activo: false,
-        };
-      }
-
-      return departamento;
+    departamentos.forEach((departamento) => {
+      this.http
+        .delete(`${this.apiUrl}/${departamento.id}`, {
+          headers: this.getHeaders(),
+        })
+        .subscribe({
+          next: () => this.refrescar(),
+          error: () => this.refrescar(),
+        });
     });
 
-    if (cantidad > 0) {
-      this.guardar();
-    }
-
-    return cantidad;
+    return departamentos.length;
   }
-
-  // ============================================================
-  // REACTIVAR TODOS LOS DEPARTAMENTOS DEL PROPIETARIO
-  // SOLO DEBE SER LLAMADO DESDE LA GESTIÓN DEL ADMINISTRADOR
-  // ============================================================
 
   reactivarDepartamentosPropietario(email: string): number {
-    this.sincronizar();
-
-    const correo = email.trim().toLowerCase();
-    let cantidad = 0;
-
-    this.departamentos = this.departamentos.map((departamento) => {
-      const pertenece = (departamento.propietarioEmail || '').trim().toLowerCase() === correo;
-
-      if (pertenece && departamento.Activo === false) {
-        cantidad++;
-
-        return {
-          ...departamento,
-          Activo: true,
-        };
-      }
-
-      return departamento;
-    });
-
-    if (cantidad > 0) {
-      this.guardar();
-    }
-
-    return cantidad;
-  }
-
-  // ============================================================
-  // ELIMINAR TODOS LOS DEPARTAMENTOS DEL PROPIETARIO
-  // ============================================================
-
-  eliminarDepartamentosPorPropietario(email: string): number {
-    this.sincronizar();
-
-    const correo = email.trim().toLowerCase();
-    const cantidadAnterior = this.departamentos.length;
-
-    this.departamentos = this.departamentos.filter(
-      (departamento) => (departamento.propietarioEmail || '').trim().toLowerCase() !== correo,
+    const departamentos = this.getDepartamentosPorPropietario(email).filter(
+      (departamento) => departamento.Activo === false,
     );
 
-    const eliminados = cantidadAnterior - this.departamentos.length;
+    departamentos.forEach((departamento) => {
+      this.http
+        .put(
+          `${this.apiUrl}/${departamento.id}`,
+          {
+            ...departamento,
+            Estado: 'Disponible',
+            Activo: true,
+          },
+          {
+            headers: this.getHeaders(),
+          },
+        )
+        .subscribe({
+          next: () => this.refrescar(),
+          error: () => this.refrescar(),
+        });
+    });
 
-    if (eliminados > 0) {
-      this.guardar();
-    }
-
-    return eliminados;
+    return departamentos.length;
   }
 
-  // ============================================================
-  // ELIMINAR
-  // ============================================================
+  eliminarDepartamentosPorPropietario(email: string): number {
+    const departamentos = this.getDepartamentosPorPropietario(email);
+
+    departamentos.forEach((departamento) => {
+      this.http
+        .delete(`${this.apiUrl}/${departamento.id}`, {
+          headers: this.getHeaders(),
+        })
+        .subscribe({
+          next: () => this.refrescar(),
+          error: () => this.refrescar(),
+        });
+    });
+
+    return departamentos.length;
+  }
 
   eliminarDepartamento(id: number): boolean {
-    this.sincronizar();
+    this.http
+      .delete(`${this.apiUrl}/${id}`, {
+        headers: this.getHeaders(),
+      })
+      .subscribe({
+        next: () => this.refrescar(),
+        error: () => this.refrescar(),
+      });
 
-    const cantidadAnterior = this.departamentos.length;
-
-    this.departamentos = this.departamentos.filter((departamento) => departamento.id !== id);
-
-    if (this.departamentos.length === cantidadAnterior) {
-      return false;
-    }
-
-    this.guardar();
     return true;
   }
 }
