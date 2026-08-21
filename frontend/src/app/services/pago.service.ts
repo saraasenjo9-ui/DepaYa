@@ -41,6 +41,8 @@ export interface Pago {
 export class PagoService {
   private readonly STORAGE_KEY = 'pagosDepaYa';
 
+  private apiUrl = 'https://depayabackend-fzbeg0g5cydsecbm.canadacentral-01.azurewebsites.net/api/Departamentos';
+
   // ============================================================
   // LISTAR
   // ============================================================

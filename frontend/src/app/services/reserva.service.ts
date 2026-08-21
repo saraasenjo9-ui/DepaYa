@@ -69,6 +69,7 @@ export interface RangoOcupado {
 export class ReservaService {
   private readonly STORAGE_KEY = 'reservasDepaYa';
 
+  private apiUrl = 'https://depayabackend-fzbeg0g5cydsecbm.canadacentral-01.azurewebsites.net/api/Departamentos';
   // ============================================================
   // LISTAR
   // ============================================================

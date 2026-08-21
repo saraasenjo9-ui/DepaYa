@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable } from 'rxjs';
 
 export interface Departamento {
   id: number;
@@ -35,6 +37,8 @@ export class DepartamentoService {
   ]);
 
   private departamentos: Departamento[] = [];
+
+  private apiUrl = 'https://depayabackend-fzbeg0g5cydsecbm.canadacentral-01.azurewebsites.net/api/Departamentos';
 
   constructor() {
     this.cargarDepartamentos();
