@@ -40,7 +40,7 @@ export interface ActualizarUsuario {
   providedIn: 'root',
 })
 export class UsuarioService {
-  private apiUrl = '[https://depayabackend-fzbeg0g5cydsecbm.canadacentral-01.azurewebsites.net/api/Usuarios](https://depayabackend-fzbeg0g5cydsecbm.canadacentral-01.azurewebsites.net/api/Usuarios)';
+  private apiUrl = 'https://depayabackend-fzbeg0g5cydsecbm.canadacentral-01.azurewebsites.net/api/Usuarios';
 
   constructor(private http: HttpClient) {}
 
