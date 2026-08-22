@@ -38,14 +38,70 @@ export class DepartamentoService {
 
   private departamentos: Departamento[] = [];
 
+  // ============================================================
+  // NUEVO: CONEXIÓN AL BACKEND DE AZURE
+  // ============================================================
   private apiUrl = 'https://depayabackend-fzbeg0g5cydsecbm.canadacentral-01.azurewebsites.net/api/Departamentos';
 
-  constructor() {
+  constructor(private http: HttpClient) {
     this.cargarDepartamentos();
   }
 
+  private getHeaders(): HttpHeaders {
+    const token = localStorage.getItem('token');
+    return new HttpHeaders({
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    });
+  }
+
   // ============================================================
-  // CARGAR
+  // NUEVO: MÉTODOS HTTP PARA CONECTAR CON EL BACKEND
+  // ============================================================
+  listarDesdeBackend(): Observable<Departamento[]> {
+    return this.http.get<Departamento[]>(this.apiUrl, {
+      headers: this.getHeaders(),
+    });
+  }
+
+  obtenerDesdeBackend(id: number): Observable<Departamento> {
+    return this.http.get<Departamento>(`${this.apiUrl}/${id}`, {
+      headers: this.getHeaders(),
+    });
+  }
+
+  crearEnBackend(departamento: any): Observable<any> {
+    return this.http.post(this.apiUrl, departamento, {
+      headers: this.getHeaders(),
+    });
+  }
+
+  actualizarEnBackend(id: number, departamento: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}/${id}`, departamento, {
+      headers: this.getHeaders(),
+    });
+  }
+
+  eliminarEnBackend(id: number): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/${id}`, {
+      headers: this.getHeaders(),
+    });
+  }
+
+  listarPorPropietarioDesdeBackend(email: string): Observable<Departamento[]> {
+    return this.http.get<Departamento[]>(`${this.apiUrl}/propietario/${email}`, {
+      headers: this.getHeaders(),
+    });
+  }
+
+  listarActivosDesdeBackend(): Observable<Departamento[]> {
+    return this.http.get<Departamento[]>(`${this.apiUrl}/activos`, {
+      headers: this.getHeaders(),
+    });
+  }
+
+  // ============================================================
+  // CÓDIGO ORIGINAL (NO TOCAR) - MANEJO LOCAL CON localStorage
   // ============================================================
 
   private cargarDepartamentos(): void {
@@ -66,15 +122,9 @@ export class DepartamentoService {
       }
     }
 
-    // Desde ahora el proyecto inicia sin propiedades de relleno.
-    // Solo se mostrarán las publicaciones creadas por propietarios.
     this.departamentos = [];
     this.guardar();
   }
-
-  // ============================================================
-  // QUITAR LOS 6 DEPARTAMENTOS DEMO ANTIGUOS
-  // ============================================================
 
   private limpiarDepartamentosDemo(lista: Departamento[]): Departamento[] {
     return lista.filter((departamento) => {
@@ -87,10 +137,6 @@ export class DepartamentoService {
     });
   }
 
-  // ============================================================
-  // NORMALIZAR CAMPOS OPCIONALES
-  // ============================================================
-
   private normalizarDepartamentos(): void {
     this.departamentos = this.departamentos.map((departamento) => ({
       ...departamento,
@@ -102,10 +148,6 @@ export class DepartamentoService {
       Activo: departamento.Activo !== false,
     }));
   }
-
-  // ============================================================
-  // SINCRONIZAR DESDE LOCALSTORAGE
-  // ============================================================
 
   private sincronizar(): void {
     const datos = localStorage.getItem(this.STORAGE_KEY);
@@ -127,16 +169,12 @@ export class DepartamentoService {
     }
   }
 
-  // ============================================================
-  // GUARDAR
-  // ============================================================
-
   private guardar(): void {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.departamentos));
   }
 
   // ============================================================
-  // LISTAR TODOS
+  // MÉTODOS ORIGINALES (NO TOCAR)
   // ============================================================
 
   getDepartamentos(): Departamento[] {
@@ -146,10 +184,6 @@ export class DepartamentoService {
       ...departamento,
     }));
   }
-
-  // ============================================================
-  // LISTAR SOLO ACTIVOS
-  // ============================================================
 
   getDepartamentosActivos(): Departamento[] {
     this.sincronizar();
@@ -161,10 +195,6 @@ export class DepartamentoService {
       }));
   }
 
-  // ============================================================
-  // BUSCAR POR ID
-  // ============================================================
-
   getDepartamentoById(id: number): Departamento | undefined {
     this.sincronizar();
 
@@ -172,10 +202,6 @@ export class DepartamentoService {
 
     return departamento ? { ...departamento } : undefined;
   }
-
-  // ============================================================
-  // DEPARTAMENTOS DEL PROPIETARIO
-  // ============================================================
 
   getDepartamentosPorPropietario(email: string): Departamento[] {
     this.sincronizar();
@@ -188,10 +214,6 @@ export class DepartamentoService {
         ...departamento,
       }));
   }
-
-  // ============================================================
-  // AGREGAR
-  // ============================================================
 
   agregarDepartamento(departamento: Departamento): Departamento {
     this.sincronizar();
@@ -222,10 +244,6 @@ export class DepartamentoService {
     };
   }
 
-  // ============================================================
-  // ACTUALIZAR
-  // ============================================================
-
   actualizarDepartamento(departamento: Departamento): boolean {
     this.sincronizar();
 
@@ -254,10 +272,6 @@ export class DepartamentoService {
     return true;
   }
 
-  // ============================================================
-  // DESACTIVAR UN DEPARTAMENTO
-  // ============================================================
-
   desactivarDepartamento(id: number): boolean {
     this.sincronizar();
 
@@ -277,10 +291,6 @@ export class DepartamentoService {
     this.guardar();
     return true;
   }
-
-  // ============================================================
-  // DESACTIVAR TODOS LOS DEPARTAMENTOS DEL PROPIETARIO
-  // ============================================================
 
   desactivarDepartamentosPropietario(email: string): number {
     this.sincronizar();
@@ -310,11 +320,6 @@ export class DepartamentoService {
     return cantidad;
   }
 
-  // ============================================================
-  // REACTIVAR TODOS LOS DEPARTAMENTOS DEL PROPIETARIO
-  // SOLO DEBE SER LLAMADO DESDE LA GESTIÓN DEL ADMINISTRADOR
-  // ============================================================
-
   reactivarDepartamentosPropietario(email: string): number {
     this.sincronizar();
 
@@ -343,10 +348,6 @@ export class DepartamentoService {
     return cantidad;
   }
 
-  // ============================================================
-  // ELIMINAR TODOS LOS DEPARTAMENTOS DEL PROPIETARIO
-  // ============================================================
-
   eliminarDepartamentosPorPropietario(email: string): number {
     this.sincronizar();
 
@@ -365,10 +366,6 @@ export class DepartamentoService {
 
     return eliminados;
   }
-
-  // ============================================================
-  // ELIMINAR
-  // ============================================================
 
   eliminarDepartamento(id: number): boolean {
     this.sincronizar();
